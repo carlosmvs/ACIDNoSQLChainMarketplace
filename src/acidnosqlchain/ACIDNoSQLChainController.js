@@ -3,10 +3,14 @@ import mongoose from 'mongoose'
 import rp from 'request-promise'
 import uuid from 'uuid/v1'
 const nodeAddress = uuid().split('-').join('');
+const hashCustomer = uuid().split('-').join('');
+const hashItem = uuid().split('-').join('');
 import ACIDNoSQLChainBlockModel from './ACIDNoSQLChainBlockModel'
-import ACIDNoSQLChainSenderModel from './ACIDNoSQLChainSenderModel'
-import ACIDNoSQLChainRecipientModel from './ACIDNoSQLChainRecipientModel'
-import ACIDNoSQLChainTransferenceModel from './ACIDNoSQLChainTransferenceModel'
+import ACIDNoSQLChainCustomerModel from '../acidnosqlchainmarketplace/ACIDNoSQLChainMarketplaceCustomerModel'
+import ACIDNoSQLChainItemModel from '../acidnosqlchainmarketplace/ACIDNoSQLChainMarketplaceItemModel';
+import ACIDNoSQLChainOrderModel from '../acidnosqlchainmarketplace/ACIDNoSQLChainMarketplaceOrderModel'
+import ACIDNoSQLChainPaymentModel from '../acidnosqlchainmarketplace/ACIDNoSQLChainMarketplacePaymentModel'
+
 
 const ACIDNoSQLChain = new Blockchain();
 
@@ -97,7 +101,7 @@ class ACIDNoSQLChainController {
 	// broadcast transaction
 	async storeBroadcastTransaction(req, res) {
 		const newTransaction = ACIDNoSQLChain.createNewTransaction(
-			req.body.senderId, req.body.recipientId, req.body.amount,
+			req.body.hashCustomer, req.body.hashItem, req.body.price, req.body.quantity,
 			1.5, nodeAddress);
 		ACIDNoSQLChain.addTransactionToPendingTransactions(newTransaction);
 		const requestPromises = [];
@@ -228,7 +232,7 @@ class ACIDNoSQLChainController {
 		let blocks = []
 		let arrayBlockHash = []
 		let newBlockTransactions = newBlock.transactions.filter(e => {
-			return e.senderId != undefined
+			return e.hashCustomer != undefined
 		})
 		let blockchain = await ACIDNoSQLChainBlockModel.find()
 		blockchain.forEach(e => {
@@ -249,7 +253,7 @@ class ACIDNoSQLChainController {
 		try {
 			await ACIDNoSQLChainBlockModel.create([{ block: newBlock }]).then(() => {
 				newBlockTransactions.forEach(e => {
-					ACIDNoSQLChainTransferenceModel.create(e)
+					ACIDNoSQLChainOrderModel.create(e)
 				})
 			}, { session })
 			await session.commitTransaction()
@@ -260,12 +264,71 @@ class ACIDNoSQLChainController {
 		}
 	}
 
+	async storeCustomer(req, res) {
+		try {
+			let body = req.body
+			body.wallet.hash = hashCustomer
+			const customer = await ACIDNoSQLChainCustomerModel.create(body)
+			res.json(customer)
+		} catch (err) {
+			throw err
+		}
+	}
+
+	async storeOrder(req, res) {
+		try {
+			const order = await ACIDNoSQLChainOrderModel.create(req.body)
+			res.json(order)
+		} catch (err) {
+			throw err
+		}
+	}
+
+	async storeItem(req, res) {
+		try {
+			let body = req.body
+			body.wallet.hash = hashItem
+			const item = await ACIDNoSQLChainItemModel.create(body)
+			res.json(item)
+		} catch (err) {
+			throw err
+		}
+	}
+
 	async storeSender(req, res) {
 		try {
-			const sender = ACIDNoSQLChainSenderModel.create(req.body, { session })
+			const sender = ACIDNoSQLChainCustomerModel.create(req.body, { session })
 			res.json(sender)
 		} catch (err) {
 			throw err
+		}
+	}
+
+	async storePayment(req, res) {
+		const sessionPayment = await mongoose.startSession({ readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } })
+		sessionPayment.startTransaction()
+		try {
+			const customers = await ACIDNoSQLChainCustomerModel.find().session(sessionPayment)
+			let customer = customers.filter(customer => {
+				return customer.wallet.hash == req.body.hashCustomer
+			})
+			const items = await ACIDNoSQLChainItemModel.find().session(sessionPayment)
+			let item = items.filter(item => {
+				return item.wallet.hash == req.body.hashItem
+			})
+			customer[0].wallet.amount -= req.body.price
+			item[0].wallet.stock -= req.body.quantity
+			await ACIDNoSQLChainCustomerModel.findByIdAndUpdate(customer[0]._id, customer[0]).session(sessionPayment)
+			await ACIDNoSQLChainItemModel.findByIdAndUpdate(item[0]._id, item[0]).session(sessionPayment)
+			req.body.total = req.body.price * req.body.quantity
+			const payment = await ACIDNoSQLChainPaymentModel.create(req.body)
+			await sessionPayment.commitTransaction()
+			res.json(payment)
+		} catch (err) {
+			await sessionPayment.abortTransaction()
+		}
+		finally {
+			sessionPayment.endSession()
 		}
 	}
 

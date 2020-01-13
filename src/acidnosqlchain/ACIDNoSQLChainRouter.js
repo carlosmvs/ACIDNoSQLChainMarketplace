@@ -35,6 +35,13 @@ routesBlockchain.get('/transferences', ACIDNoSQLChainController.indexTransferenc
 routesBlockchain.put('/transferences/:id', ACIDNoSQLChainController.updateTransference)
 routesBlockchain.delete('/transferences/:id', ACIDNoSQLChainController.destroyTransference)
 
+routesBlockchain.post('/customers', ACIDNoSQLChainController.storeCustomer)
+
+routesBlockchain.post('/items', ACIDNoSQLChainController.storeItem)
+
+routesBlockchain.post('/orders', ACIDNoSQLChainController.storeOrder)
+
+routesBlockchain.post('/payments', ACIDNoSQLChainController.storePayment)
 
 
 

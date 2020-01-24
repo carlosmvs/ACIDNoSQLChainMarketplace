@@ -8,7 +8,7 @@ routesBlockchain.post('/blockchain/mongo', ACIDNoSQLChainController.storeBlockch
 
 routesBlockchain.get('/blockchain/mongo', ACIDNoSQLChainController.indexBlockchainMongo)
 
-routesBlockchain.get('/blockchain', ACIDNoSQLChainController.indexBlockchain)
+routesBlockchain.get('/blockchain/server', ACIDNoSQLChainController.indexBlockchain)
 
 routesBlockchain.post('/node', ACIDNoSQLChainController.storeNode)
 
@@ -27,21 +27,17 @@ routesBlockchain.get('/mine', ACIDNoSQLChainController.indexMine)
 routesBlockchain.get('/consensu', ACIDNoSQLChainController.indexConsensu)
 
 
-routesBlockchain.post('/senders', ACIDNoSQLChainController.storeSender)
-routesBlockchain.post('/recipients', ACIDNoSQLChainController.storeRecipient)
 
-routesBlockchain.post('/transferences', ACIDNoSQLChainController.storeTransference)
-routesBlockchain.get('/transferences', ACIDNoSQLChainController.indexTransference)
-routesBlockchain.put('/transferences/:id', ACIDNoSQLChainController.updateTransference)
-routesBlockchain.delete('/transferences/:id', ACIDNoSQLChainController.destroyTransference)
+
+
 
 routesBlockchain.post('/customers', ACIDNoSQLChainController.storeCustomer)
 
+routesBlockchain.post('/stores', ACIDNoSQLChainController.storeStore)
+
 routesBlockchain.post('/items', ACIDNoSQLChainController.storeItem)
 
-routesBlockchain.post('/orders', ACIDNoSQLChainController.storeOrder)
-
-routesBlockchain.post('/payments', ACIDNoSQLChainController.storePayment)
+routesBlockchain.put('/orders/:id', ACIDNoSQLChainController.updateOrder)
 
 
 

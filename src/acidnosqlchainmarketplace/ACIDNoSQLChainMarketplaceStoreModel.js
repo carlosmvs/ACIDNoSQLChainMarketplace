@@ -1,7 +1,7 @@
 import mongoose from 'mongoose'
 
-const CustomerSchema = new mongoose.Schema({
-  customer: {
+const StoreSchema = new mongoose.Schema({
+  store: {
     type: String
   },
   wallet: {
@@ -13,4 +13,4 @@ const CustomerSchema = new mongoose.Schema({
   }
 })
 
-export default mongoose.model('Customer', CustomerSchema)
+export default mongoose.model('Store', StoreSchema)

@@ -1,11 +1,14 @@
 import mongoose from 'mongoose'
 
-const ACIDNoSQLChainItemSchema = new mongoose.Schema({
+const ItemSchema = new mongoose.Schema({
   item: {
     type: String
   },
-  wallet: {
-    type: Object
+  stock: {
+    type: Number
+  },
+  price: {
+    type: Number
   },
   createdAt: {
     type: Date,
@@ -13,4 +16,4 @@ const ACIDNoSQLChainItemSchema = new mongoose.Schema({
   }
 })
 
-export default mongoose.model('Item', ACIDNoSQLChainItemSchema)
+export default mongoose.model('Item', ItemSchema)

@@ -1,20 +1,20 @@
 import mongoose from 'mongoose'
 
-const ACIDNoSQLChainOrderSchema = new mongoose.Schema({
-  hashCustomer: {
-    type: String
+const OrderSchema = new mongoose.Schema({
+  customerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Customer'
   },
-  hashItem: {
-    type: Object
+  storeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Store'
   },
-  price: {
-    type: Number
-  },
-  quantity: {
-    type: Number
+  items: {
+    type: Array
   },
   total: {
-    type: Number
+    type: Number,
+    default: 0
   },
   createdAt: {
     type: Date,
@@ -22,4 +22,4 @@ const ACIDNoSQLChainOrderSchema = new mongoose.Schema({
   }
 })
 
-export default mongoose.model('Order', ACIDNoSQLChainOrderSchema)
+export default mongoose.model('Order', OrderSchema)

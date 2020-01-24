@@ -28,13 +28,12 @@ Blockchain.prototype.getLastBlock = function () {
 	return this.chain[this.chain.length - 1];
 };
 
-Blockchain.prototype.createNewTransaction = function (hashCustomer, hashItem, price,
-	quantity, rate, mine) {
+Blockchain.prototype.createNewTransaction = function (customerId, storeId, items,
+	rate, mine) {
 	const newTransaction = {
-		hashCustomer: hashCustomer,
-		hashItem: hashItem,
-		price: price,
-		quantity: quantity,
+		customerId: customerId,
+		storeId: storeId,
+		items: items,
 		rate: rate,
 		mine: mine,
 		transactionId: uuid().split('-').join('')

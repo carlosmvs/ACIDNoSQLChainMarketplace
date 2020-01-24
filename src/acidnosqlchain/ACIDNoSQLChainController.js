@@ -3,13 +3,11 @@ import mongoose from 'mongoose'
 import rp from 'request-promise'
 import uuid from 'uuid/v1'
 const nodeAddress = uuid().split('-').join('');
-const hashCustomer = uuid().split('-').join('');
-const hashItem = uuid().split('-').join('');
 import ACIDNoSQLChainBlockModel from './ACIDNoSQLChainBlockModel'
-import ACIDNoSQLChainCustomerModel from '../acidnosqlchainmarketplace/ACIDNoSQLChainMarketplaceCustomerModel'
-import ACIDNoSQLChainItemModel from '../acidnosqlchainmarketplace/ACIDNoSQLChainMarketplaceItemModel';
-import ACIDNoSQLChainOrderModel from '../acidnosqlchainmarketplace/ACIDNoSQLChainMarketplaceOrderModel'
-import ACIDNoSQLChainPaymentModel from '../acidnosqlchainmarketplace/ACIDNoSQLChainMarketplacePaymentModel'
+import ACIDNoSQLChainMarketplaceCustomerModel from '../acidnosqlchainmarketplace/ACIDNoSQLChainMarketplaceCustomerModel'
+import ACIDNoSQLChainMarketplaceStoreModel from '../acidnosqlchainmarketplace/ACIDNoSQLChainMarketplaceStoreModel'
+import ACIDNoSQLChainMarketplaceItemModel from '../acidnosqlchainmarketplace/ACIDNoSQLChainMarketplaceItemModel';
+import ACIDNoSQLChainMarketplaceOrderModel from '../acidnosqlchainmarketplace/ACIDNoSQLChainMarketplaceOrderModel';
 
 
 const ACIDNoSQLChain = new Blockchain();
@@ -101,8 +99,8 @@ class ACIDNoSQLChainController {
 	// broadcast transaction
 	async storeBroadcastTransaction(req, res) {
 		const newTransaction = ACIDNoSQLChain.createNewTransaction(
-			req.body.hashCustomer, req.body.hashItem, req.body.price, req.body.quantity,
-			1.5, nodeAddress);
+			req.body.customerId, req.body.storeId, req.body.items,
+			10, nodeAddress);
 		ACIDNoSQLChain.addTransactionToPendingTransactions(newTransaction);
 		const requestPromises = [];
 		ACIDNoSQLChain.networkNodes.forEach(networkNodeUrl => {
@@ -232,7 +230,7 @@ class ACIDNoSQLChainController {
 		let blocks = []
 		let arrayBlockHash = []
 		let newBlockTransactions = newBlock.transactions.filter(e => {
-			return e.hashCustomer != undefined
+			return e.customerId != undefined
 		})
 		let blockchain = await ACIDNoSQLChainBlockModel.find()
 		blockchain.forEach(e => {
@@ -247,38 +245,42 @@ class ACIDNoSQLChainController {
 		newBlock.index = arrayMax(blocks) + 1
 		newBlock.previousBlockHash = arrayBlockHash.pop()
 
-		//Add transactions Blockchain + ACID
-		const session = await mongoose.startSession({ readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } })
-		session.startTransaction()
+
+		const sessionBlockchain = await mongoose.startSession()
+		sessionBlockchain.startTransaction({
+			readConcern: { level: 'snapshot' },
+			writeConcern: { w: 'majority' }
+		})
 		try {
-			await ACIDNoSQLChainBlockModel.create([{ block: newBlock }]).then(() => {
-				newBlockTransactions.forEach(e => {
-					ACIDNoSQLChainOrderModel.create(e)
+			await ACIDNoSQLChainBlockModel.create([{ block: newBlock }],
+				{ session: sessionBlockchain }).then(() => {
+					newBlockTransactions.forEach(async e => {
+						ACIDNoSQLChainMarketplaceOrderModel.createCollection().then(() => {
+							ACIDNoSQLChainMarketplaceOrderModel.create(e).then(() => { })
+						})
+					})
 				})
-			}, { session })
-			await session.commitTransaction()
+			await sessionBlockchain.commitTransaction()
 		} catch (err) {
-			await session.abortTransaction()
+			await sessionBlockchain.abortTransaction()
 		} finally {
-			session.endSession()
+			sessionBlockchain.endSession()
 		}
 	}
 
 	async storeCustomer(req, res) {
 		try {
-			let body = req.body
-			body.wallet.hash = hashCustomer
-			const customer = await ACIDNoSQLChainCustomerModel.create(body)
+			const customer = await ACIDNoSQLChainMarketplaceCustomerModel.create(req.body)
 			res.json(customer)
 		} catch (err) {
 			throw err
 		}
 	}
 
-	async storeOrder(req, res) {
+	async storeStore(req, res) {
 		try {
-			const order = await ACIDNoSQLChainOrderModel.create(req.body)
-			res.json(order)
+			const store = await ACIDNoSQLChainMarketplaceStoreModel.create(req.body)
+			res.json(store)
 		} catch (err) {
 			throw err
 		}
@@ -286,128 +288,46 @@ class ACIDNoSQLChainController {
 
 	async storeItem(req, res) {
 		try {
-			let body = req.body
-			body.wallet.hash = hashItem
-			const item = await ACIDNoSQLChainItemModel.create(body)
+			const item = await ACIDNoSQLChainMarketplaceItemModel.create(req.body)
 			res.json(item)
 		} catch (err) {
 			throw err
 		}
 	}
 
-	async storeSender(req, res) {
+	async updateOrder(req, res) {
+		const sessionOrder = await mongoose.startSession({
+			readConcern: { level: 'snapshot' },
+			writeConcern: { w: 'majority' }
+		})
+		sessionOrder.startTransaction()
 		try {
-			const sender = ACIDNoSQLChainCustomerModel.create(req.body, { session })
-			res.json(sender)
-		} catch (err) {
-			throw err
-		}
-	}
-
-	async storePayment(req, res) {
-		const sessionPayment = await mongoose.startSession({ readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } })
-		sessionPayment.startTransaction()
-		try {
-			const customers = await ACIDNoSQLChainCustomerModel.find().session(sessionPayment)
-			let customer = customers.filter(customer => {
-				return customer.wallet.hash == req.body.hashCustomer
+			let total = 0
+			let customer = await ACIDNoSQLChainMarketplaceCustomerModel.findById(req.body.customerId)
+			let store = await ACIDNoSQLChainMarketplaceStoreModel.findById(req.body.storeId)
+			let order = await ACIDNoSQLChainMarketplaceOrderModel.findById(req.params.id)
+			let items = order.items
+			items.forEach(async i => {
+				total += (i.price * i.quantity)
+				let item = await ACIDNoSQLChainMarketplaceItemModel.findById(i.itemId)
+				item.stock -= i.quantity
+				await ACIDNoSQLChainMarketplaceItemModel.findByIdAndUpdate(item._id, item).session(sessionOrder)
 			})
-			const items = await ACIDNoSQLChainItemModel.find().session(sessionPayment)
-			let item = items.filter(item => {
-				return item.wallet.hash == req.body.hashItem
-			})
-			customer[0].wallet.amount -= req.body.price
-			item[0].wallet.stock -= req.body.quantity
-			await ACIDNoSQLChainCustomerModel.findByIdAndUpdate(customer[0]._id, customer[0]).session(sessionPayment)
-			await ACIDNoSQLChainItemModel.findByIdAndUpdate(item[0]._id, item[0]).session(sessionPayment)
-			req.body.total = req.body.price * req.body.quantity
-			const payment = await ACIDNoSQLChainPaymentModel.create(req.body)
-			await sessionPayment.commitTransaction()
-			res.json(payment)
+			customer.wallet.amount -= total
+			store.wallet.amount += total
+			order.total = total
+			await ACIDNoSQLChainMarketplaceCustomerModel.findByIdAndUpdate(customer._id, customer).session(sessionOrder)
+			await ACIDNoSQLChainMarketplaceStoreModel.findByIdAndUpdate(store._id, store).session(sessionOrder)
+			await ACIDNoSQLChainMarketplaceOrderModel.findByIdAndUpdate(order._id, order).session(sessionOrder)
+			await sessionOrder.commitTransaction()
+			res.json(order)
 		} catch (err) {
-			await sessionPayment.abortTransaction()
+			await sessionOrder.abortTransaction()
 		}
 		finally {
-			sessionPayment.endSession()
-		}
-	}
-
-	async storeRecipient(req, res) {
-		const sessionTransference = await mongoose.startSession()
-		sessionTransference.startTransaction({ readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } })
-		try {
-			let recipient = await ACIDNoSQLChainRecipientModel.create([req.body], { sessionTransference })
-			await sessionTransference.commitTransaction()
-			res.json(recipient)
-		} catch (err) {
-			await sessionTransference.abortTransaction()
-		} finally {
-			sessionTransference.endSession()
-		}
-	}
-
-	async updateTransference(req, res) {
-		const sessionTransference = await mongoose.startSession()
-		sessionTransference.startTransaction({ readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } })
-		try {
-			let sender = await ACIDNoSQLChainSenderModel.findById(req.body.senderId).session(sessionTransference)
-			let recipient = await ACIDNoSQLChainRecipientModel.findById(req.body.recipientId).session(sessionTransference)
-			let transference = await ACIDNoSQLChainTransferenceModel.findById(req.params.id).session(sessionTransference)
-			sender.amount -= req.body.amount
-			recipient.amount += req.body.amount
-			transference.amount += req.body.amount
-			await ACIDNoSQLChainSenderModel.findByIdAndUpdate(req.body.senderId, sender).session(sessionTransference)
-			await ACIDNoSQLChainRecipientModel.findByIdAndUpdate(req.body.recipientId, recipient).session(sessionTransference)
-			await ACIDNoSQLChainTransferenceModel.findByIdAndUpdate(req.params.id, transference).session(sessionTransference)
-			await sessionTransference.commitTransaction()
-			res.json({ message: "OK" })
-		} catch (err) {
-			await sessionTransference.abortTransaction()
-		} finally {
-			sessionTransference.endSession()
-		}
-	}
-
-	async storeTransference(req, res) {
-		const sessionTransference = await mongoose.startSession()
-		sessionTransference.startTransaction({ readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } })
-		try {
-			let transference = await ACIDNoSQLChainTransferenceModel.create([req.body]).session(sessionTransference)
-			await sessionTransference.commitTransaction()
-			res.json(transference)
-		} catch (err) {
-			await sessionTransference.abortTransaction()
-		} finally {
-			sessionTransference.endSession()
-		}
-	}
-
-	async destroyTransference(req, res) {
-		const sessionTransference = await mongoose.startSession()
-		sessionTransference.startTransaction({ readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } })
-		try {
-			await ACIDNoSQLChainTransferenceModel.findByIdAndDelete(req.params.id).session(sessionTransference)
-			await sessionTransference.commitTransaction()
-			res.send()
-		} catch (err) {
-			await sessionTransference.abortTransaction()
-		} finally {
-			sessionTransference.endSession()
-		}
-	}
-
-	async indexTransference(req, res) {
-		try {
-			const transference = await ACIDNoSQLChainTransferenceModel.find()
-			res.json(transference)
-		} catch (err) {
-			throw err
+			sessionOrder.endSession()
 		}
 	}
 }
-
-
-
-
 
 export default new ACIDNoSQLChainController()

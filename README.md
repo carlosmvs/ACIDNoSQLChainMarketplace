@@ -1,2 +1,2 @@
 # MongoChainMarketPlace
-Repositório do Framework ACIDNoSQLChainMarketplace que é uma extensão do ACIDNoSQLChain nas áreas de compras e vendas.
+Repositório do Framework MongoChainMarketPlace que é uma extensão do MongoChain especializado em compra e vendas de produtos do setor automotivo.

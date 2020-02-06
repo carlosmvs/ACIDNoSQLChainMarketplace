@@ -1,8 +1,9 @@
 import mongoose from 'mongoose'
 
 const ItemSchema = new mongoose.Schema({
-  item: {
-    type: String
+  storeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Store'
   },
   stock: {
     type: Number

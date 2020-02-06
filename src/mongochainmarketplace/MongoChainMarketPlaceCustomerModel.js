@@ -1,7 +1,7 @@
 import mongoose from 'mongoose'
 
 const CustomerSchema = new mongoose.Schema({
-  customer: {
+  name: {
     type: String
   },
   wallet: {

@@ -1,6 +1,6 @@
 import mongoose from 'mongoose'
 
-const ACIDNoSQLChainTransferenceSchema = new mongoose.Schema({
+const MongoChainTransferenceSchema = new mongoose.Schema({
   senderId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Sender'
@@ -12,10 +12,14 @@ const ACIDNoSQLChainTransferenceSchema = new mongoose.Schema({
   amount: {
     type: Number
   },
+  status: {
+    type: String,
+    default: 'Solicitado'
+  },
   createdAt: {
     type: Date,
     default: Date.now
   }
 })
 
-export default mongoose.model('Transference', ACIDNoSQLChainTransferenceSchema)
+export default mongoose.model('Transference', MongoChainTransferenceSchema)

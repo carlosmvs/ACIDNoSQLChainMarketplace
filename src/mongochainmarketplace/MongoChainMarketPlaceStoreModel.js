@@ -1,11 +1,14 @@
 import mongoose from 'mongoose'
 
 const StoreSchema = new mongoose.Schema({
-  store: {
+  name: {
     type: String
   },
   wallet: {
-    type: Object
+    type: Object,
+    default: {
+      amount: 0
+    }
   },
   createdAt: {
     type: Date,

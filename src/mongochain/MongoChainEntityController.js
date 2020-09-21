@@ -118,7 +118,7 @@ class MongoChainEntityController {
         item.stock -= i.quantity
         await MongoChainItemModel.findByIdAndUpdate(item._id, item).session(sessionOrder)
       })
-      customer.wallet.amount -= (total + 0.5)
+      customer.wallet.amount -= total
       store.wallet.amount += total
       order.total = total
       await MongoChainCustomerModel.findByIdAndUpdate(customer._id, customer).session(sessionOrder)
